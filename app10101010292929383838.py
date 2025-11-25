@@ -46,7 +46,7 @@ ENHANCE_DATA = {
     25: {'name': '메두사', 'rate': 0.35, 'gold': 400000000, 'sell': 400000000, 'prot_qty': 23, 'req_note': '도끼 가루 15개'}, 
     26: {'name': '오딧세이 소드', 'rate': 0.50, 'gold': 1800000000, 'sell': 5000000, 'prot_qty': '방지권불가', 'req_note': None}, 
     27: {'name': '모자이칼', 'rate': 0.40, 'gold': 2500000000, 'sell': 2500000000, 'prot_qty': '방지권불가', 'req_note': '투명 물질 2개'}, 
-    28: {'name': '화염에 달군 검', 'rate': 0.15, 'gold': 0, 'sell': '판매 불가', 'prot_qty': '방지권불가', 'req_note': None}, 
+    28: {'name': '화염에 달군 검', 'rate': 0.15, 'gold': 0, 'sell': '100000000000000000', 'prot_qty': '방지권불가', 'req_note': None}, 
     29: {'name': '화염에 달군 검', 'rate': 1.00, 'gold': 0, 'sell': 10000000000, 'prot_qty': 0, 'req_note': '최고 레벨 달성'},
 }
 
