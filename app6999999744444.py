@@ -472,48 +472,7 @@ else:
     st.info(f"🚩 현재 소속: {my_cn} 제국")
     st.write(f"보유 병력: {my_c['mil']:,}명 | 공격력: x{my_c.get('atk', 1.0):.1f}")
     
-    # 적 리스트 (나 제외)
-    targets = [c for c in db['clans'].keys() if c != my_cn]
-    
-    if not targets:
-        st.warning("⚠️ 현재 침공 가능한 적국이 없습니다. NPC가 생성될 때까지 기다리세요.")
-    else:
-        c1, c2 = st.columns([3, 1])
-        with c1:
-            target_sel = st.selectbox("🎯 침공할 타겟 제국 선택", targets)
-            en_c = db['clans'][target_sel]
-            st.caption(f"적 정보: 병력 약 {en_c['mil']:,}명 / 방어력 x{en_c.get('def', 1.0):.1f}")
-            
-        with c2:
-            st.write(" ")
-            st.write(" ")
-            btn_war = st.button("🔥 침 공 개 시", use_container_width=True)
-            
-        if btn_war:
-            if my_c['mil'] < 1000:
-                st.error("❌ 병력이 부족합니다! (최소 1,000명 필요)")
-            else:
-                # --- 30초 실시간 전황 보고 ---
-                st.warning(f"🚀 {target_sel} 제국을 향해 전 부대 진격 개시!")
-                prog = st.progress(0)
-                status = st.empty()
-                
-                # 30초 카운트다운 연출
-                for s in range(30):
-                    time.sleep(1)
-                    prog.progress((s + 1) / 30)
-                    war_msgs = [
-                        "🛰️ 적진 방공망 무력화 중...", 
-                        "🚜 전차 부대 국경선 돌파!", 
-                        "💥 외곽 방어 기지 초토화 완료", 
-                        "🛡️ 적군 본진 진입 시도 중...", 
-                        "💣 지휘소 최종 폭격 개시!"
-                    ]
-                    status.markdown(f"**[현장 중계]** {war_msgs[s//6]} ({30-(s+1)}초 후 최종 결과)")
-                
-                status.empty()
-                prog.empty()
-                
+    # 적 
                 # 결과 계산 (운빨 30% 반영)
                 my_p = (my_c['mil'] * my_c.get('atk', 1.0)) * random.uniform(0.7, 1.3)
                 en_p = (en_c['mil'] * en_c.get('def', 1.0)) * random.uniform(0.7, 1.3)
