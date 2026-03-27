@@ -595,3 +595,40 @@ with t_war:
 
 # --- [순위표 코드 끝] ---
 
+import time
+
+# 1. 전쟁 진행 상태를 기억할 저장소 만들기 (맨 위에 한 번만 선언)
+if 'war_ongoing' not in st.session_state:
+    st.session_state.war_ongoing = False
+
+# 2. 전쟁 시작 버튼 로직
+if not st.session_state.war_ongoing:
+    if st.button("🔥 전 면 전 쟁 개 시"):
+        # 버튼을 누르는 순간 "전쟁 중"으로 상태 변경
+        st.session_state.war_ongoing = True
+        st.rerun() # 상태를 즉시 저장하고 화면을 전쟁 모드로 전환
+
+# 3. 전쟁 진행 중일 때만 실행되는 블록 (이게 핵심)
+if st.session_state.war_ongoing:
+    st.warning("🚀 부대가 진격 중입니다. 창을 닫지 마세요!")
+    
+    prog_bar = st.progress(0)
+    status_msg = st.empty()
+
+    # --- 30초 대기 루프 (중간에 안 끊김) ---
+    for i in range(30):
+        time.sleep(1)
+        prog_bar.progress((i + 1) / 30)
+        status_msg.text(f"⚔️ 전투 진행 중... ({30-(i+1)}초 남음)")
+
+    # --- 여기서 결과 계산 및 병력 차감 실행 ---
+    # (여기에 형이 쓴 승패 로직 넣기)
+    st.success("🏁 전투 종료! 결과를 확인하세요.")
+    st.balloons()
+
+    # 4. 전쟁 종료 후 상태 초기화 (그래야 다음 전쟁 가능)
+    st.session_state.war_ongoing = False
+    
+    # 결과 확인 버튼을 누르면 다시 초기 화면으로
+    if st.button("지휘소로 복귀"):
+        st.rerun()
