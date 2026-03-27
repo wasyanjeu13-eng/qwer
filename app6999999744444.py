@@ -687,3 +687,97 @@ if st.session_state.war_active:
         st.rerun()
 
 # --- [수정 완료] ---
+# --- [기존 코드 맨 아래에 이어서 붙여넣으세요] ---
+
+st.divider()
+st.subheader("⚔️ 제국 전면 전쟁 지휘소")
+
+# 1. 전쟁 상태 변수 초기화 (없으면 생성)
+if 'war_active' not in st.session_state:
+    st.session_state.war_active = False
+
+# 2. 전쟁 시작 전: 타겟 설정 및 버튼 노출
+if not st.session_state.war_active:
+    my_cn = user.get('clan')
+    if not my_cn or my_cn not in db['clans']:
+        st.info("💡 클랜에 가입해야 전쟁이 가능합니다.")
+    else:
+        my_c = db['clans'][my_cn]
+        # [권한 강제 부여]
+        if uid not in my_c['donated']: my_c['donated'][uid] = 0
+        
+        targets = [c for c in db['clans'].keys() if c != my_cn]
+        if targets:
+            target_sel = st.selectbox("🎯 침공할 제국 선택", targets)
+            
+            if st.button("🔥 전 면 전 쟁 개 시", use_container_width=True):
+                if my_c['mil'] < 1000:
+                    st.error("❌ 병력이 부족합니다! (최소 1,000명 필요)")
+                else:
+                    # 전쟁 시작! 상태를 True로 바꾸고 화면을 새로고침함
+                    st.session_state.war_active = True
+                    st.session_state.target_name = target_sel # 타겟 이름 저장
+                    st.rerun()
+        else:
+            st.warning("⚠️ 공격할 적국이 없습니다.")
+
+# 3. [핵심] 전쟁 진행 중: 게이지가 절대로 안 사라지는 구간
+if st.session_state.war_active:
+    target_name = st.session_state.target_name
+    en_c = db['clans'][target_name]
+    my_c = db['clans'][user['clan']]
+
+    st.warning(f"🚀 {target_name} 제국으로 침공 부대가 진격 중입니다! (30초 소요)")
+    
+    # 화면에 박제할 공간 만들기
+    p_bar = st.progress(0)
+    msg_slot = st.empty()
+
+    # 30초 동안 코드를 여기서 붙잡아둠 (루프 돌리는 중엔 화면 안 바뀜)
+    for i in range(30):
+        time.sleep(1)
+        p_bar.progress((i + 1) / 30)
+        
+        # 전황 메시지 실시간 교체
+        war_msgs = ["📡 적진 방어망 분석 중...", "🚜 전차 부대 국경 돌파!", "⚔️ 시가지 근접 교전 중!", "💣 적 지휘부 최종 정밀 타격!"]
+        msg_slot.markdown(f"**[현장 중계]** {war_msgs[i//8]} ({30-(i+1)}초 남음)")
+
+    # --- 30초 종료 후 결과 계산 및 병력 소모 ---
+    my_title = user.get('title', '시민')
+    # 칭호 버프 (전쟁의 신 등) 적용 로직
+    atk_val = TITLES.get(my_title, {"atk": 1.0})['atk']
+    
+    my_p = (my_c['mil'] * my_c.get('atk', 1.0) * atk_val) * random.uniform(0.8, 1.2)
+    en_p = (en_c['mil'] * en_c.get('def', 1.0)) * random.uniform(0.8, 1.2)
+
+    if my_p > en_p:
+        loot = int(sum(en_c['donated'].values()) * 0.4)
+        user['bal'] += loot
+        user['win_streak'] = user.get('win_streak', 0) + 1
+        
+        # 10연승 시 전쟁의 신 등극
+        if user['win_streak'] >= 10: user['title'] = "전쟁의 신"
+        
+        # 병력 소모 (승리 시 20%)
+        loss = int(my_c['mil'] * 0.2)
+        my_c['mil'] -= loss
+        en_c['mil'] = int(en_c['mil'] * 0.2)
+        
+        st.balloons()
+        st.success(f"🎊 대승리! ${loot:,.0f} 약탈 성공! (현재 {user['win_streak']}연승)")
+        st.write(f"📉 아군 병력 **{loss:,}명**이 명예롭게 전사했습니다.")
+    else:
+        # 패배 시 (연승 초기화, 병력 90% 소멸)
+        user['win_streak'] = 0
+        user['title'] = "시민"
+        loss = int(my_c['mil'] * 0.9)
+        my_c['mil'] -= loss
+        st.error(f"💀 참패... {target_name}의 반격에 부대가 궤멸되었습니다.")
+        st.write(f"📉 아군 병력 **{loss:,}명**이 전사했습니다.")
+
+    # 전쟁 종료: 상태 초기화
+    st.session_state.war_active = False
+    if st.button("🏁 결과 확인 및 지휘소 복귀"):
+        st.rerun()
+
+# --- [수정 완료] ---
