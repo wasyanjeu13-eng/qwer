@@ -632,3 +632,58 @@ if st.session_state.war_ongoing:
     # 결과 확인 버튼을 누르면 다시 초기 화면으로
     if st.button("지휘소로 복귀"):
         st.rerun()
+# --- [기존 코드 맨 아래에 이어서 붙여넣으세요] ---
+
+st.divider()
+
+# 1. 전쟁 진행 상태 스위치 (이게 꺼져있으면 게이지가 안 보임)
+if 'war_active' not in st.session_state:
+    st.session_state.war_active = False
+
+# 2. 전쟁 시작 버튼 (전쟁 중이 아닐 때만 노출)
+if not st.session_state.war_active:
+    if st.button("🔥 전 면 전 쟁 개 시", use_container_width=True):
+        st.session_state.war_active = True
+        st.rerun() # 상태를 'True'로 고정하고 화면 새로고침
+
+# 3. [핵심] 전쟁 중일 때만 돌아가는 루프 (상태가 True여야 게이지가 유지됨)
+if st.session_state.war_active:
+    st.warning("🚀 부대가 적진으로 진격 중입니다! (30초 소요)")
+    
+    # 게이지랑 메시지 칸 확보
+    p_bar = st.progress(0)
+    msg_slot = st.empty()
+
+    # 30초 동안 절대로 안 사라지고 버티는 루프
+    for i in range(30):
+        time.sleep(1)
+        # 게이지 업데이트 (1초마다 찔금찔금 차오름)
+        p_bar.progress((i + 1) / 30)
+        
+        # 실시간 상황 중계 (형이 좋아하는 전황 보고)
+        war_msgs = ["📡 적진 정찰 중...", "🚜 전차 부대 돌파!", "⚔️ 시가지 교전 중!", "💣 지휘부 타격!"]
+        msg_slot.markdown(f"**[전황]** {war_msgs[i//8]} ({30-(i+1)}초 남음)")
+
+    # --- 루프가 끝나면 결과 계산 (여기서 병력 깎고 돈 벌기) ---
+    # (예시: 승패 로직)
+    my_p = my_c['mil'] * random.uniform(0.8, 1.2)
+    en_p = en_c['mil'] * random.uniform(0.8, 1.2)
+    
+    if my_p > en_p:
+        st.balloons()
+        st.success("🎊 대승리! 적 제국을 함락했습니다!")
+        # [병력 소모 추가]
+        loss = int(my_c['mil'] * 0.2)
+        my_c['mil'] -= loss
+        st.write(f"📉 피해 보고: 아군 **{loss:,}명** 전사")
+    else:
+        st.error("💀 패배... 부대가 전멸했습니다.")
+        my_c['mil'] = int(my_c['mil'] * 0.1)
+
+    # 4. 전쟁 종료 후 상태 초기화 (그래야 다음 전쟁 버튼이 다시 뜸)
+    st.session_state.war_active = False
+    
+    if st.button("🏁 결과 확인 및 기지 복귀"):
+        st.rerun()
+
+# --- [수정 완료] ---
