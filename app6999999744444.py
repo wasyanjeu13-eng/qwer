@@ -430,67 +430,7 @@ with st.form("chat_form", clear_on_submit=True):
             
 # --- [기존 코드 맨 아래에 이어서 붙여넣으세요] ---
 
-st.divider()
 
-# [1. 실시간 자산 순위표 (RANKING)]
-st.subheader("🏆 전 서버 자산가 순위 (TOP 10)")
-rank_list = []
-for u_id, u_info in db['users'].items():
-    # 총 자산 계산 (현금 + 보유 주식 가치 합산)
-    total_asset = u_info['bal']
-    for t, v in u_info.get('port', {}).items():
-        if t in db['history'] and v[0] > 0:
-            total_asset += (v[0] * db['history'][t][-1][4])
-            
-    rank_list.append({
-        "시민": f"{u_info.get('title', '시민')} {u_id}",
-        "총 자산": total_asset,
-        "소속": u_info.get('clan', '무소속')
-    })
-
-if rank_list:
-    r_df = pd.DataFrame(rank_list).sort_values(by="총 자산", ascending=False).reset_index(drop=True)
-    r_df.index += 1 # 1등부터 표시
-    r_df["총 자산"] = r_df["총 자산"].apply(lambda x: f"${x:,.0f}")
-    st.table(r_df[["시민", "총 자산", "소속"]].head(10))
-
-# [2. 전쟁 시스템 (30초 대기 및 멤버십 강제 동기화)]
-st.divider()
-st.subheader("⚔️ 제국 전면 전쟁 지휘소")
-
-# 유저의 클랜 소속 여부 확인
-my_cn = user.get('clan')
-if not my_cn or my_cn not in db['clans']:
-    st.info("💡 전쟁을 하려면 먼저 클랜을 창설하거나 가입해야 합니다.")
-else:
-    my_c = db['clans'][my_cn]
-    
-    # [버그 수정 핵심] 방장(Owner)이거나 소속은 되어있는데 donated 리스트에 없는 경우 강제 삽입
-    if uid not in my_c['donated']:
-        my_c['donated'][uid] = 0 # 이제 절대 "클랜원만 가능" 에러 안 뜸
-    
-    st.info(f"🚩 현재 소속: {my_cn} 제국")
-    st.write(f"보유 병력: {my_c['mil']:,}명 | 공격력: x{my_c.get('atk', 1.0):.1f}")
-    
-    # 적 
-                # 결과 계산 (운빨 30% 반영)
-                my_p = (my_c['mil'] * my_c.get('atk', 1.0)) * random.uniform(0.7, 1.3)
-                en_p = (en_c['mil'] * en_c.get('def', 1.0)) * random.uniform(0.7, 1.3)
-                
-                if my_p > en_p:
-                    # 적 클랜의 총 기부 자금에서 약탈
-                    loot_base = sum(en_c['donated'].values())
-                    loot = int(loot_base * 0.35) if loot_base > 0 else 50000000 # 최소 보상 5천만
-                    
-                    user['bal'] += loot
-                    en_c['mil'] = int(en_c['mil'] * 0.3) # 적 병력 70% 증발
-                    st.balloons()
-                    st.success(f"🎊 대승리! {target_sel} 정복 완료! ${loot:,.0f}를 약탈했습니다.")
-                else:
-                    my_c['mil'] = int(my_c['mil'] * 0.1) # 아군 90% 증발
-                    st.error(f"💀 참패... {target_sel}의 철벽 방어에 아군이 전멸했습니다.")
-
-# --- [수정 완료] ---
 # --- [기존 코드 맨 아래에 이어서 붙여넣으세요] ---
 
 st.divider()
@@ -600,3 +540,58 @@ else:
                     loss = int(my_c['mil'] * 0.9)
                     my_c['mil'] -= loss
                     st.error("💀 패배... 연승 기록과 칭호가 초기화되었습니다.")
+
+# --- [기존 코드 맨 아래에 이어서 붙여넣으세요] ---
+
+st.divider()
+st.header("📊 제국 통합 랭킹 시스템")
+
+# 1. 데이터 집계 (모든 유저 대상)
+leaderboard_data = []
+for u_id, u_info in db['users'].items():
+    # [자산 계산] 현금 + 보유 주식/코인 현재가치 합산
+    total_asset = u_info['bal']
+    for t, v in u_info.get('port', {}).items():
+        if t in db['history'] and v[0] > 0:
+            total_asset += (v[0] * db['history'][t][-1][4])
+    
+    # [전투력 계산] 칭호 버프 반영 (칭호 데이터가 없으면 기본 1.0)
+    current_title = u_info.get('title', '시민')
+    # 위에서 정의한 TITLES 딕셔너리 참조 (없으면 기본값)
+    atk_val = TITLES.get(current_title, {"atk": 1.0})['atk']
+    
+    # [클랜 병력 확인]
+    c_name = u_info.get('clan')
+    mil_count = db['clans'][c_name]['mil'] if c_name and c_name in db['clans'] else 0
+    power_score = int(mil_count * atk_val)
+
+    leaderboard_data.append({
+        "순위": 0, # 임시
+        "시민": f"[{current_title}] {u_id}",
+        "총 자산": total_asset,
+        "전투력": power_score,
+        "연승": f"{u_info.get('win_streak', 0)}회",
+        "소속": c_name if c_name else "무소속"
+    })
+
+# 2. 화면 출력 (탭으로 구분해서 깔끔하게)
+t_asset, t_war = st.tabs(["💰 자산가 순위 (TOP 10)", "⚔️ 전쟁광 순위 (TOP 10)"])
+
+with t_asset:
+    # 자산 순으로 정렬
+    df_asset = pd.DataFrame(leaderboard_data).sort_values(by="총 자산", ascending=False).reset_index(drop=True)
+    df_asset["순위"] = df_asset.index + 1
+    # 금액 포맷팅
+    df_asset["총 자산"] = df_asset["총 자산"].apply(lambda x: f"${x:,.0f}")
+    st.table(df_asset[["순위", "시민", "총 자산", "소속"]].head(10))
+
+with t_war:
+    # 전투력 순으로 정렬
+    df_war = pd.DataFrame(leaderboard_data).sort_values(by="전투력", ascending=False).reset_index(drop=True)
+    df_war["순위"] = df_war.index + 1
+    # 숫자 포맷팅
+    df_war["전투력"] = df_war["전투력"].apply(lambda x: f"{x:,}")
+    st.table(df_war[["순위", "시민", "전투력", "연승", "소속"]].head(10))
+
+# --- [순위표 코드 끝] ---
+
