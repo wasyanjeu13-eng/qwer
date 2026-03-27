@@ -921,3 +921,41 @@ with st.form("chat_form", clear_on_submit=True):
     user_msg = st.text_input("메시지 입력")
     if st.form_submit_button("전송"):
         if user_msg: db['chat'].append({"u": uid, "m": user_msg}); st.rerun()
+# [핵심] 30초 루프와 게이지 로직을 이 코드로 대체하세요.
+if st.session_state.get('war_active') or st.session_state.get('war_ongoing'):
+    # 1. 대상 데이터 가져오기
+    target_name = st.session_state.get('target_name', '적 제국')
+    en_c = db['clans'].get(target_name)
+    my_c = db['clans'].get(user.get('clan'))
+
+    if my_c and en_c:
+        # 2. 칭호 버프 및 전투력 즉시 계산 (딜레이 0초)
+        curr_t = user.get('title', '시민')
+        atk_buff = TITLES.get(curr_t, {"atk": 1.0})['atk']
+        
+        my_p = (my_c['mil'] * my_c.get('atk', 1.0) * atk_buff) * random.uniform(0.8, 1.2)
+        en_p = (en_c['mil'] * en_c.get('def', 1.0)) * random.uniform(0.8, 1.2)
+
+        # 3. 결과 즉시 판정
+        if my_p > en_p:
+            loot = int(sum(en_c['donated'].values()) * 0.4)
+            user['bal'] += loot
+            user['win_streak'] = user.get('win_streak', 0) + 1
+            if user['win_streak'] >= 10: user['title'] = "전쟁의 신"
+            
+            # 병력 즉시 차감
+            my_c['mil'] -= int(my_c['mil'] * 0.15) 
+            en_c['mil'] = int(en_c['mil'] * 0.1)
+            st.balloons()
+            st.success(f"🎊 즉시 함락 완료! ${loot:,.0f} 약탈 성공! ({user['win_streak']}연승)")
+        else:
+            user['win_streak'] = 0
+            user['title'] = "시민"
+            my_c['mil'] = int(my_c['mil'] * 0.05) # 95% 전사
+            st.error(f"💀 공성 실패... 부대가 궤멸되었습니다.")
+
+    # 4. 상태 초기화 및 복귀 버튼
+    st.session_state.war_active = False
+    st.session_state.war_ongoing = False
+    if st.button("지휘소 복귀"):
+        st.rerun()
