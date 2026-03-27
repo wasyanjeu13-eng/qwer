@@ -781,3 +781,106 @@ if st.session_state.war_active:
         st.rerun()
 
 # --- [수정 완료] ---
+# --- [기존 코드 맨 아래에 이어서 붙여넣으세요] ---
+
+st.divider()
+
+# [1. 통합 순위표 (자산 & 전투력)]
+st.subheader("🏆 제국 통합 서열 (TOP 10)")
+rank_list = []
+for u_id, u_info in db['users'].items():
+    # 총 자산 계산
+    total_asset = u_info['bal']
+    for t, v in u_info.get('port', {}).items():
+        if t in db['history'] and v[0] > 0:
+            total_asset += (v[0] * db['history'][t][-1][4])
+    
+    # 전투력 계산 (칭호 버프 포함)
+    c_name = u_info.get('clan')
+    mil_count = db['clans'][c_name]['mil'] if c_name and c_name in db['clans'] else 0
+    # 칭호 데이터 (TITLES 딕셔너리가 상단에 없다면 아래 주석 해제해서 사용)
+    # TITLES = {"시민":1.0, "용병":1.1, "기사":1.2, "정복자":1.5, "전쟁의 신":2.5}
+    atk_buff = 1.0
+    if u_info.get('title') == "전쟁의 신": atk_buff = 2.5
+    elif u_info.get('title') == "정복자": atk_buff = 1.5
+    
+    rank_list.append({
+        "시민": f"[{u_info.get('title', '시민')}] {u_id}",
+        "총 자산": total_asset,
+        "전투력": int(mil_count * atk_buff),
+        "연승": f"{u_info.get('win_streak', 0)}회"
+    })
+
+if rank_list:
+    r_df = pd.DataFrame(rank_list).sort_values(by="전투력", ascending=False).reset_index(drop=True)
+    r_df.index += 1
+    r_df["총 자산"] = r_df["총 자산"].apply(lambda x: f"${x:,.0f}")
+    st.table(r_df.head(10))
+
+
+# [2. 즉시 결전 전쟁 지휘소]
+st.divider()
+st.subheader("⚔️ 즉시 결전 지휘소")
+
+my_cn = user.get('clan')
+if not my_cn or my_cn not in db['clans']:
+    st.info("💡 클랜에 가입해야 전쟁이 가능합니다.")
+else:
+    my_c = db['clans'][my_cn]
+    # [권한 강제 부여] 방장이면 무조건 멤버 인정
+    if uid not in my_c['donated']: my_c['donated'][uid] = 0
+    
+    st.write(f"현재 칭호: **{user.get('title', '시민')}** | 연승 기록: **{user.get('win_streak', 0)}**")
+    
+    targets = [c for c in db['clans'].keys() if c != my_cn]
+    if targets:
+        target_sel = st.selectbox("🎯 침공할 제국 선택", targets)
+        en_c = db['clans'][target_sel]
+        
+        # 🔥 [핵심] 버튼 누르면 0.1초 만에 결과 나옴
+        if st.button("🔥 즉 시 침 공 (결전)", use_container_width=True):
+            if my_c['mil'] < 1000:
+                st.error("❌ 병력이 부족합니다! (최소 1,000명 필요)")
+            else:
+                # --- 결과 계산 ---
+                # 내 전투력 (칭호 버프 반영)
+                my_atk = my_c.get('atk', 1.0)
+                if user.get('title') == "전쟁의 신": my_atk *= 2.5
+                elif user.get('title') == "정복자": my_atk *= 1.5
+                
+                my_p = (my_c['mil'] * my_atk) * random.uniform(0.8, 1.2)
+                en_p = (en_c['mil'] * en_c.get('def', 1.0)) * random.uniform(0.8, 1.2)
+
+                if my_p > en_p:
+                    # [승리]
+                    loot = int(sum(en_c['donated'].values()) * 0.4)
+                    user['bal'] += loot
+                    user['win_streak'] = user.get('win_streak', 0) + 1
+                    
+                    # 10연승 시 전쟁의 신 등극
+                    if user['win_streak'] >= 10: user['title'] = "전쟁의 신"
+                    elif user['win_streak'] >= 5: user['title'] = "정복자"
+                    
+                    # 병력 소모 (승리 시 15%~25% 전사)
+                    loss = int(my_c['mil'] * random.uniform(0.15, 0.25))
+                    my_c['mil'] -= loss
+                    en_c['mil'] = int(en_c['mil'] * 0.2) # 적 80% 궤멸
+                    
+                    st.balloons()
+                    st.success(f"🎊 대승리! ${loot:,.0f} 약탈! (현재 {user['win_streak']}연승)")
+                    st.write(f"📉 아군 피해: **{loss:,}명** 전사")
+                else:
+                    # [패배]
+                    user['win_streak'] = 0
+                    user['title'] = "시민"
+                    loss = int(my_c['mil'] * 0.9)
+                    my_c['mil'] -= loss
+                    st.error(f"💀 참패... {target_sel}의 반격에 부대가 궤멸되었습니다.")
+                    st.write(f"📉 아군 피해: **{loss:,}명** 전사 (연승/칭호 초기화)")
+                
+                # 결과 반영을 위해 새로고침
+                st.button("결과 확인 완료") 
+    else:
+        st.warning("⚠️ 공격할 적국이 없습니다.")
+
+# --- [수정 완료] ---
