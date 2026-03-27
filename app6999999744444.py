@@ -439,3 +439,93 @@ with st.form("chat_form", clear_on_submit=True):
     user_msg = st.text_input("메시지 입력")
     if st.form_submit_button("전송"):
         if user_msg: db['chat'].append({"u": uid, "m": user_msg}); st.rerun()
+# --- [기존 코드 맨 아래에 이어서 붙여넣으세요] ---
+
+st.divider()
+
+# [1. 실시간 자산 순위표 (RANKING)]
+st.subheader("🏆 제국 자산 순위 (TOP 10)")
+# 유저 데이터를 리스트로 변환 후 정렬
+rank_list = []
+for u_id, u_info in db['users'].items():
+    # 총 자산 = 현금 + (보유 주식 가치 합산)
+    total_asset = u_info['bal']
+    for t, v in u_info.get('port', {}).items():
+        if v[0] > 0:
+            total_asset += (v[0] * db['history'][t][-1][4])
+            
+    rank_list.append({
+        "순위": 0, # 임시
+        "시민": f"{u_info.get('title', '시민')} {u_id}",
+        "총 자산": f"${total_asset:,.0f}",
+        "소속 클랜": u_info.get('clan', '무소속'),
+        "_val": total_asset # 정렬용 숨김 데이터
+    })
+
+# 자산 기준 내림차순 정렬 후 순위 부여
+rank_df = pd.DataFrame(rank_list).sort_values(by="_val", ascending=False).reset_index(drop=True)
+rank_df["순위"] = rank_df.index + 1
+st.table(rank_df[["순위", "시민", "총 자산", "소속 클랜"]].head(10))
+
+
+# [2. 전쟁 시스템 (30초 대기 로직)]
+st.divider()
+st.subheader("⚔️ 제국 전면 전쟁 지휘소")
+
+if not user.get('clan') or user['clan'] not in db['clans']:
+    st.info("💡 전쟁에 참여하려면 클랜 탭에서 클랜을 먼저 창설하거나 가입하세요.")
+else:
+    my_cn = user['clan']
+    my_c = db['clans'][my_cn]
+    
+    # 공격 대상 필터링 (나 제외)
+    targets = [c for c in db['clans'].keys() if c != my_cn]
+    
+    if not targets:
+        st.warning("🏳️ 현재 세계에 생존한 적 제국이 없습니다.")
+    else:
+        c_war1, c_war2 = st.columns([3, 1])
+        with c_war1:
+            target_sel = st.selectbox("🎯 침공할 타겟 제국 선택", targets)
+            en_c = db['clans'][target_sel]
+            st.caption(f"적 정보: 병력 {en_c['mil']:,}명 / 방어력 x{en_c.get('def', 1.0):.1f}")
+            
+        with c_war2:
+            st.write(" ")
+            st.write(" ")
+            btn_war = st.button("🔥 침 공 개 시", use_container_width=True)
+            
+        if btn_war:
+            if my_c['mil'] < 1000:
+                st.error("❌ 병력이 부족합니다! (최소 1,000명 필요)")
+            else:
+                # 30초 대기 및 상황 중계
+                st.info(f"🚩 {target_sel} 제국을 향해 진격을 시작합니다! (예상 소요 시간: 30초)")
+                prog = st.progress(0)
+                status = st.empty()
+                
+                for s in range(30):
+                    time.sleep(1)
+                    prog.progress((s + 1) / 30)
+                    # 실시간 전황 메시지
+                    war_msgs = ["보급로 확보 중...", "적진 레이더 교란 중...", "공성 병기 조립 완료", "성벽 파괴 시도...", "최종 돌격 명령 하달!"]
+                    status.markdown(f"**[전황 리포트]** {war_msgs[s//6]} ({30-(s+1)}초 후 결판)")
+                
+                status.empty()
+                prog.empty()
+                
+                # 결과 계산
+                my_p = (my_c['mil'] * my_c.get('atk', 1.0)) * random.uniform(0.7, 1.3)
+                en_p = (en_c['mil'] * en_c.get('def', 1.0)) * random.uniform(0.7, 1.3)
+                
+                if my_p > en_p:
+                    loot = int(sum(en_c['donated'].values()) * 0.35)
+                    user['bal'] += loot
+                    en_c['mil'] = int(en_c['mil'] * 0.3) # 적 병력 70% 증발
+                    st.balloons()
+                    st.success(f"🎊 대승리! {target_sel} 제국을 정복하고 ${loot:,.0f}를 약탈했습니다!")
+                else:
+                    my_c['mil'] = int(my_c['mil'] * 0.1) # 아군 90% 증발
+                    st.error(f"💀 참패... {target_sel}의 철벽 방어에 아군 부대가 궤멸되었습니다.")
+
+# --- [확장팩 끝] ---
